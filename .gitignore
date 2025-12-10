@@ -1,0 +1,26 @@
+# Airflow Logs and generated files
+logs/
+plugins/__pycache__/
+dags/__pycache__/
+
+# Generated Data
+data/
+
+# Documentation
+*.pdf
+
+# Docker Environment
+.env
+Docker/.env
+
+# Local Development/IDEs
+.idea/
+.vscode/
+*.swp
+*.DS_Store
+
+# Python
+*.pyc
+__pycache__/
+venv/
+.venv/
