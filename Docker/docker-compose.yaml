@@ -12,6 +12,8 @@ x-airflow-common:
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     AIRFLOW__API__AUTH_BACKEND: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
+    AIRFLOW_CONN_POSTGRES_DEFAULT: 'postgresql://airflow:airflow@postgres:5432/airflow'
+    AIRFLOW_CONN_AWS_DEFAULT: 'generic://minioadmin:minioadmin@?endpoint_url=http%3A%2F%2Fminio%3A9000'
     _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
   volumes:
     - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
@@ -31,6 +33,8 @@ services:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
       POSTGRES_DB: airflow
+    ports:
+      - "5432:5432"
     volumes:
       - postgres-db-volume:/var/lib/postgresql/data
 
