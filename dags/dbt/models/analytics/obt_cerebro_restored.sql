@@ -35,7 +35,7 @@ joined as (
     from biometrics b
     left join missions m 
         on b.hero_id = m.hero_id 
-        and b.timestamp = m.timestamp
+        and b.timestamp = date_trunc('minute',m.timestamp)
     left join heroes h
         on b.hero_id = h.hero_id
 )
