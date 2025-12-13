@@ -83,6 +83,11 @@ docker-compose up -d
 cd Docker
 docker-compose up -d
 ```
+If there is an issue with pulling images, try:
+
+```bash
+docker logout
+```
 
 **First-time setup**: The initial startup may take 2-3 minutes as Docker downloads images and initializes databases.
 
