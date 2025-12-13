@@ -28,6 +28,7 @@ I implement a layered modeling approach (often called "Medallion Architecture"):
 1. **Raw Layer (`raw` schema)**:
     - Exact copy of data from MinIO for heroes and missions (CSV/JSON).
     - Aggregation of the biometrics data in Airflow (1m aggregations).
+    - Data is deleted after all the transformations done to reduce duplicate storage.
     - *Goal*: Immutable history and auditability.
 
 2. **Staging Layer (`staging` schema via dbt)**:
