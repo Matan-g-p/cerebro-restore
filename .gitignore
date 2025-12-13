@@ -24,3 +24,9 @@ Docker/.env
 __pycache__/
 venv/
 .venv/
+
+# dbt
+dags/dbt/target/
+dags/dbt/dbt_packages/
+dags/dbt/logs/
+dags/dbt/.user.yml

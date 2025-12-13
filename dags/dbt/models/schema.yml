@@ -1,0 +1,82 @@
+
+version: 2
+
+models:
+  - name: dim_heroes
+    description: "Dimension table for heroes metadata"
+    columns:
+      - name: hero_id
+        description: "Primary key for hero"
+        tests:
+          - unique
+          - not_null
+
+  - name: dim_missions_heroes
+    description: "Dimension table for mission details linked to heroes"
+    tests:
+      - dbt_expectations.expect_compound_columns_to_be_unique:
+          column_list: ["mission_id", "hero_id"]
+    columns:
+      - name: mission_id
+        description: "Primary key for mission"
+        tests:
+          - not_null
+      - name: hero_id
+        description: "Foreign key to hero"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_heroes')
+              field: hero_id
+
+  - name: fact_biometrics
+    description: "Fact table for timestamped biometrics data"
+    tests:
+      - dbt_expectations.expect_compound_columns_to_be_unique:
+          column_list: ["hero_id", "timestamp"]
+    columns:
+      - name: hero_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_heroes')
+              field: hero_id
+      - name: timestamp
+        tests:
+          - not_null
+      - name: heart_rate
+
+  - name: obt_cerebro_restored
+    description: "One Big Table for analytics, denormalized"
+    tests:
+      - dbt_expectations.expect_compound_columns_to_be_unique:
+          column_list: ["hero_id", "timestamp"]
+    columns:
+      - name: hero_id
+        tests:
+          - not_null
+      - name: timestamp
+        tests:
+          - not_null
+      - name: heart_rate
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 300
+      - name: stress_level
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 1000
+      - name: energy_output
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+      - name: structural_damage
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+      - name: mission_outcome
+        tests:
+          - dbt_expectations.expect_column_values_to_be_in_set:
+              value_set: ['Successful', 'Failed', 'Compromised']
