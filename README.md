@@ -42,7 +42,7 @@ Before you begin, ensure you have the following installed:
 ### 1. Clone the Repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/Matan-g-p/cerebro-restore.git
 cd cerebro-restore
 ```
 
@@ -198,21 +198,6 @@ cerebro-restore/
 └── plugins/                  # Airflow plugins
 ```
 
-## 🛠️ Development
-
-### Viewing Logs
-
-```bash
-# Airflow scheduler logs
-docker logs docker-airflow-scheduler-1 -f
-
-# Airflow webserver logs
-docker logs docker-airflow-webserver-1 -f
-
-# PostgreSQL logs
-docker logs docker-postgres-datalake-1 -f
-```
-
 ## 🧹 Cleanup
 
 To stop and remove all containers, networks, and volumes:
@@ -224,7 +209,3 @@ docker-compose down
 # Remove volumes (WARNING: This deletes all data!)
 docker-compose down -v
 ```
-
-## 📄 License
-
-This project is for educational and demonstration purposes.
