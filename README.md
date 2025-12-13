@@ -77,10 +77,12 @@ Navigate to the Docker directory and start all services:
 ```bash
 # On Windows (PowerShell)
 cd Docker
+docker-compose build
 docker-compose up -d
 
 # On Linux/Mac
 cd Docker
+docker-compose build
 docker-compose up -d
 ```
 
@@ -186,7 +188,8 @@ cerebro-restore/
 ├── README.md                 # This file
 ├── requirements.txt          # Python dependencies
 ├── Docker/
-│   └── docker-compose.yaml   # Docker services configuration
+│   ├── docker-compose.yaml   # Docker services configuration
+│   └── Dockerfile            # Custom Airflow image definition
 ├── dags/
 │   ├── cerebro_restore_pipeline.py    # Main ETL pipeline
 │   ├── generate_and_ingest_data.py    # Data generation DAG

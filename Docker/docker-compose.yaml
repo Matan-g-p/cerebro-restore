@@ -2,12 +2,13 @@ version: '3.8'
 
 x-airflow-common:
   &airflow-common
-  image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.9.0}
+  build:
+    context: ..
+    dockerfile: Docker/Dockerfile
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}
-    AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}
     AIRFLOW__CORE__FERNET_KEY: ''
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
@@ -69,7 +70,7 @@ services:
 
   airflow-webserver:
     <<: *airflow-common
-    command: bash -c "pip install -r /requirements.txt && airflow webserver"
+    command: airflow webserver
     ports:
       - "8080:8080"
 
@@ -81,7 +82,7 @@ services:
 
   airflow-scheduler:
     <<: *airflow-common
-    command: bash -c "pip install -r /requirements.txt && airflow scheduler"
+    command: airflow scheduler
 
     restart: always
     depends_on:
@@ -96,7 +97,6 @@ services:
     command:
       - -c
       - |
-        function ver() { printf "%03d%03d%03d%03d" $$(echo "$$1" | tr '.' ' '); }
         mkdir -p /sources/logs /sources/dags /sources/plugins
         chown -R "${AIRFLOW_UID}:0" /sources/{logs,dags,plugins}
         exec /entrypoint airflow version
