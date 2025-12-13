@@ -3,15 +3,18 @@ import sqlalchemy
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
-from helpers.minio.operations import read_csv_from_minio, read_json_from_minio, read_parquet_from_minio
+from helpers.minio import read_csv_from_minio, read_json_from_minio, read_parquet_from_minio
+from config.settings import Config
 
 import pandas as pd
 import json
 import io
+import logging
 from datetime import datetime, timedelta
 
+# Configure logging
+logger = logging.getLogger(__name__)
 
-BUCKET_NAME = "cerebro-data"
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
@@ -25,77 +28,146 @@ default_args = {
 
 def create_schemas():
     """Creates the target schemas in Postgres if they don't exist."""
-    hook = PostgresHook(postgres_conn_id='cerebro_db')
+    logger.info("Starting schema creation")
+    hook = PostgresHook(postgres_conn_id=Config.POSTGRES_CONN_ID)
     hook.run("CREATE SCHEMA IF NOT EXISTS raw;")
-    hook.run("CREATE SCHEMA IF NOT EXISTS cerebro;")
     print("Schemas created successfully.")
 
 
 def ingest_heroes_to_raw(**context):
-    heroes = read_csv_from_minio("heroes.csv", bucket=BUCKET_NAME)
+    """Ingest heroes data from MinIO to PostgreSQL raw schema."""
+    start_time = datetime.now()
+    logger.info("Starting heroes ingestion", extra={
+        "dag_id": context["dag"].dag_id,
+        "run_id": context["run_id"]
+    })
     
-    postgres = PostgresHook(postgres_conn_id="cerebro_db")
-    engine = postgres.get_sqlalchemy_engine()
+    try:
+        heroes = read_csv_from_minio("heroes.csv", bucket=Config.BUCKET_NAME)
+        logger.info(f"Read {len(heroes)} heroes from MinIO")
         
-    heroes.to_sql('heroes', engine, if_exists='append', index=False, schema='raw')
-    print(f"Loaded {len(heroes)} rows to raw.heroes")
+        postgres = PostgresHook(postgres_conn_id=Config.POSTGRES_CONN_ID)
+        engine = postgres.get_sqlalchemy_engine()
+            
+        heroes.to_sql('heroes', engine, if_exists='append', index=False, schema=Config.RAW_SCHEMA)
+        
+        duration = (datetime.now() - start_time).total_seconds()
+        logger.info(f"Successfully loaded {len(heroes)} rows to raw.heroes", extra={
+            "duration_seconds": duration,
+            "row_count": len(heroes)
+        })
+        
+    except Exception as e:
+        logger.error(f"Failed to ingest heroes: {str(e)}", exc_info=True)
+        raise
 
 
 def ingest_missions_to_raw(**context):
-    missions_data = read_json_from_minio("mission_logs.json", bucket=BUCKET_NAME)
-    missions = pd.DataFrame(missions_data)
+    """Ingest missions data from MinIO to PostgreSQL raw schema."""
+    start_time = datetime.now()
+    logger.info("Starting missions ingestion", extra={
+        "dag_id": context["dag"].dag_id,
+        "run_id": context["run_id"]
+    })
     
-    def safe_json_dumps(x):
-        if isinstance(x, (list, dict)):
-            return json.dumps(x)
-        if pd.isna(x):
-            return None
-        return json.dumps(x)
-
-    if 'hero_ids' in missions.columns:
-        missions['hero_ids'] = missions['hero_ids'].apply(safe_json_dumps)
-    
-    if 'damage_report' in missions.columns:
-        missions['damage_report'] = missions['damage_report'].apply(safe_json_dumps)
-
-    postgres = PostgresHook(postgres_conn_id="cerebro_db")
-    engine = postgres.get_sqlalchemy_engine()
+    try:
+        missions_data = read_json_from_minio("mission_logs.json", bucket=Config.BUCKET_NAME)
+        missions = pd.DataFrame(missions_data)
+        logger.info(f"Read {len(missions)} missions from MinIO")
         
-    missions.to_sql('missions', engine, if_exists='append', index=False, schema='raw')
-    print(f"Loaded {len(missions)} rows to raw.missions")
+        def safe_json_dumps(x):
+            if isinstance(x, (list, dict)):
+                return json.dumps(x)
+            if pd.isna(x):
+                return None
+            return json.dumps(x)
+
+        if 'hero_ids' in missions.columns:
+            missions['hero_ids'] = missions['hero_ids'].apply(safe_json_dumps)
+        
+        if 'damage_report' in missions.columns:
+            missions['damage_report'] = missions['damage_report'].apply(safe_json_dumps)
+
+        postgres = PostgresHook(postgres_conn_id=Config.POSTGRES_CONN_ID)
+        engine = postgres.get_sqlalchemy_engine()
+            
+        missions.to_sql('missions', engine, if_exists='append', index=False, schema=Config.RAW_SCHEMA)
+        
+        duration = (datetime.now() - start_time).total_seconds()
+        logger.info(f"Successfully loaded {len(missions)} rows to raw.missions", extra={
+            "duration_seconds": duration,
+            "row_count": len(missions)
+        })
+        
+    except Exception as e:
+        logger.error(f"Failed to ingest missions: {str(e)}", exc_info=True)
+        raise
 
 
 def ingest_biometrics_to_raw(**context):
-    biometrics = read_parquet_from_minio("biometrics.parquet", bucket=BUCKET_NAME)
-
-    if biometrics['hero_id'].isnull().any():
-        print("Warning: Null hero_ids found in biometrics")
-
-    biometrics['timestamp'] = pd.to_datetime(biometrics['timestamp'])
-
-    aggregated_biometrics = (
-        biometrics
-        .set_index("timestamp")
-        .groupby("hero_id")
-        .resample("1min")
-        .mean()
-        .reset_index()
-    )
-
-    postgres = PostgresHook(postgres_conn_id="cerebro_db")
-    engine = postgres.get_sqlalchemy_engine()
+    """Ingest biometrics data from MinIO to PostgreSQL raw schema with aggregation."""
+    start_time = datetime.now()
+    logger.info("Starting biometrics ingestion", extra={
+        "dag_id": context["dag"].dag_id,
+        "run_id": context["run_id"]
+    })
     
-    aggregated_biometrics.to_sql('biometrics', engine, if_exists='append', index=False, schema='raw')
-    print(f"Loaded {len(aggregated_biometrics)} gathered rows to raw.biometrics (aggregated)")
+    try:
+        biometrics = read_parquet_from_minio("biometrics.parquet", bucket=Config.BUCKET_NAME)
+        logger.info(f"Read {len(biometrics)} biometric records from MinIO")
+
+        if biometrics['hero_id'].isnull().any():
+            null_count = biometrics['hero_id'].isnull().sum()
+            logger.warning(f"Found {null_count} null hero_ids in biometrics data")
+
+        biometrics['timestamp'] = pd.to_datetime(biometrics['timestamp'])
+
+        logger.info("Aggregating biometrics to 1-minute intervals")
+        aggregated_biometrics = (
+            biometrics
+            .set_index("timestamp")
+            .groupby("hero_id")
+            .resample("1min")
+            .mean()
+            .reset_index()
+        )
+        logger.info(f"Aggregated to {len(aggregated_biometrics)} records")
+
+        postgres = PostgresHook(postgres_conn_id=Config.POSTGRES_CONN_ID)
+        engine = postgres.get_sqlalchemy_engine()
+        
+        aggregated_biometrics.to_sql('biometrics', engine, if_exists='append', index=False, schema=Config.RAW_SCHEMA)
+        
+        duration = (datetime.now() - start_time).total_seconds()
+        logger.info(f"Successfully loaded {len(aggregated_biometrics)} rows to raw.biometrics", extra={
+            "duration_seconds": duration,
+            "row_count": len(aggregated_biometrics),
+            "original_count": len(biometrics)
+        })
+        
+    except Exception as e:
+        logger.error(f"Failed to ingest biometrics: {str(e)}", exc_info=True)
+        raise
 
 
 def truncate_raw_data():
-    hook = PostgresHook(postgres_conn_id="cerebro_db")
-    engine = hook.get_sqlalchemy_engine()
-    engine.execute("truncate table raw.heroes")
-    engine.execute("truncate table raw.missions")
-    engine.execute("truncate table raw.biometrics")
-    print("Raw data truncated successfully.")
+    """Truncate raw tables after successful dbt transformation."""
+    logger.info("Starting raw data truncation")
+    
+    try:
+        hook = PostgresHook(postgres_conn_id=Config.POSTGRES_CONN_ID)
+        engine = hook.get_sqlalchemy_engine()
+        
+        tables = ['raw.heroes', 'raw.missions', 'raw.biometrics']
+        for table in tables:
+            logger.info(f"Truncating {table}")
+            engine.execute(f"truncate table {table}")
+        
+        logger.info("Raw data truncated successfully")
+        
+    except Exception as e:
+        logger.error(f"Failed to truncate raw data: {str(e)}", exc_info=True)
+        raise
 
 with DAG(
     "cerebro_restore_pipeline",
@@ -125,26 +197,12 @@ with DAG(
         python_callable=ingest_biometrics_to_raw
     )
 
-    # DBT Tasks
-    # Using BashOperator assuming dbt is installed in the Airflow environment
-    # Project dir is mapped to /opt/airflow/dags/dbt
-
 
     dbt_deps = BashOperator(
         task_id='dbt_install_deps',
         bash_command='dbt deps --project-dir /opt/airflow/dags/dbt --profiles-dir /opt/airflow/dags/dbt'
     )
 
-
-    # dbt_run = BashOperator(
-    #     task_id='dbt_run',
-    #     bash_command='dbt run --project-dir /opt/airflow/dags/dbt --profiles-dir /opt/airflow/dags/dbt'
-    # )
-    
-    # dbt_test = BashOperator(
-    #     task_id='dbt_test',
-    #     bash_command='dbt test --project-dir /opt/airflow/dags/dbt --profiles-dir /opt/airflow/dags/dbt'
-    # )
 
     dbt_build = BashOperator(
         task_id='dbt_build',

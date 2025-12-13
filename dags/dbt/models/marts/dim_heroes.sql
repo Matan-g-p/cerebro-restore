@@ -11,5 +11,5 @@ select
     hero_id,
     name,
     alter_ego,
-    first_appearance
+    first_appearance::date
 from {{ ref('stg_heroes') }}
