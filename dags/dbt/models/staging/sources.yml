@@ -1,0 +1,11 @@
+
+version: 2
+
+sources:
+  - name: raw
+    database: cerebro
+    schema: raw
+    tables:
+      - name: heroes
+      - name: missions
+      - name: biometrics

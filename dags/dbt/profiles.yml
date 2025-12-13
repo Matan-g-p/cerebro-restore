@@ -1,0 +1,14 @@
+
+cerebro:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: postgres-datalake
+      user: admin
+      password: admin
+      port: 5432
+      dbname: cerebro
+      schema: cerebro
+      threads: 1
+      keepalives_idle: 0
